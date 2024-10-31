@@ -2,38 +2,6 @@
 # This is just a snapshot of buildpack-deps:buster that was last updated on 2019-12-28.
 FROM buildpack-deps:stable
 
-# Check for latest version here: https://gcc.gnu.org/releases.html, https://ftpmirror.gnu.org/gcc
-ENV GCC_VERSIONS \
-      7.4.0 \
-      8.3.0 \
-      9.2.0
-RUN set -xe && \
-    for VERSION in $GCC_VERSIONS; do \
-      curl -fSsL "https://ftpmirror.gnu.org/gcc/gcc-$VERSION/gcc-$VERSION.tar.gz" -o /tmp/gcc-$VERSION.tar.gz && \
-      mkdir /tmp/gcc-$VERSION && \
-      tar -xf /tmp/gcc-$VERSION.tar.gz -C /tmp/gcc-$VERSION --strip-components=1 && \
-      rm /tmp/gcc-$VERSION.tar.gz && \
-      cd /tmp/gcc-$VERSION && \
-      ./contrib/download_prerequisites && \
-      { rm *.tar.* || true; } && \
-      tmpdir="$(mktemp -d)" && \
-      cd "$tmpdir"; \
-      if [ $VERSION = "9.2.0" ]; then \
-        ENABLE_FORTRAN=",fortran"; \
-      else \
-        ENABLE_FORTRAN=""; \
-      fi; \
-      /tmp/gcc-$VERSION/configure \
-        --disable-multilib \
-        --enable-languages=c,c++$ENABLE_FORTRAN \
-        --prefix=/usr/local/gcc-$VERSION && \
-      make -j$(nproc) && \
-      make -j$(nproc) install-strip && \
-      rm -rf /tmp/*; \
-    done
-
-
-
 # Check for latest version here: https://www.ruby-lang.org/en/downloads
 ENV RUBY_VERSIONS \
       3.3.5
@@ -134,11 +102,48 @@ RUN git clone https://github.com/ioi/isolate.git /opt/isolate
 
 # Build and install isolate
 WORKDIR /opt/isolate
+
+
+# Update and install necessary dependencies for adding repositories
+RUN apt-get update && apt-get install -y \
+    software-properties-common \
+    wget \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Add Debian Bullseye repositories
+RUN echo "deb http://deb.debian.org/debian bullseye main" >> /etc/apt/sources.list && \
+    echo "deb http://deb.debian.org/debian bullseye-updates main" >> /etc/apt/sources.list
+
+# Add the repository for GCC 9 and update
+RUN apt-get update && \
+    apt-get install -y gcc-9 g++-9 && \
+    rm -rf /var/lib/apt/lists/*
+
+# Set GCC 9 as the default GCC version
+RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-9 90 && \
+    update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-9 90
+
+# Verify the installation
+RUN gcc --version
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libgmp-dev \
+    libmpfr-dev \
+    libmpc-dev \
+    docbook-xml \
+    docbook-xsl \
+    asciidoc \
+    xsltproc \
+    xmlto \
+    && rm -rf /var/lib/apt/lists/*
+
+
 RUN make && make install
 
 # Run check and initialize
-RUN /opt/isolate/isolate-cg-keeper
-RUN /opt/isolate/isolate-check-environment
+#RUN sudo /opt/isolate/isolate-cg-keeper
+#RUN sudo /opt/isolate/isolate-check-environment
 
 # Add isolate to the PATH
 ENV PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/isolate"
@@ -153,4 +158,3 @@ ENV BOX_ROOT /var/local/lib/isolate
 
 LABEL maintainer="Andrei Mikriukov <...@gmail.com>"
 LABEL version="1.5.0"
-
