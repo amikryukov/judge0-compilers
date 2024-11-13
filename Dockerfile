@@ -98,7 +98,7 @@ RUN apt-get update && \
                            && rm -rf /var/lib/apt/lists/*
 
 # Clone the isolate repository
-RUN git clone https://github.com/ioi/isolate.git /opt/isolate
+RUN git clone https://github.com/amikryukov/isolate.git /opt/isolate
 
 # Build and install isolate
 WORKDIR /opt/isolate
