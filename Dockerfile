@@ -1,5 +1,4 @@
 # Check for latest version here: https://hub.docker.com/_/buildpack-deps?tab=tags&page=1&name=buster&ordering=last_updated
-# This is just a snapshot of buildpack-deps:buster that was last updated on 2019-12-28.
 FROM buildpack-deps:stable
 
 # Check for latest version here: https://www.ruby-lang.org/en/downloads
@@ -19,7 +18,6 @@ RUN set -xe && \
       make -j$(nproc) install && \
       rm -rf /tmp/*; \
     done
-
 
 # Check for latest version here: https://www.python.org/downloads
 ENV PYTHON_VERSIONS \
@@ -81,8 +79,6 @@ RUN set -xe && \
     locale-gen
 ENV LANG=en_US.UTF-8 LANGUAGE=en_US:en LC_ALL=en_US.UTF-8
 
-# install isolate from master branch
-
 # Update packages and install dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends\
@@ -91,18 +87,8 @@ RUN apt-get update && \
     libcap-dev \
     libseccomp-dev \
     asciidoc \
+    libsystemd-dev \
     && rm -rf /var/lib/apt/lists/*
-
-RUN apt-get update && \
-    apt-get install -y libsystemd-dev \
-                           && rm -rf /var/lib/apt/lists/*
-
-# Clone the isolate repository
-RUN git clone https://github.com/amikryukov/isolate.git /opt/isolate
-
-# Build and install isolate
-WORKDIR /opt/isolate
-
 
 # Update and install necessary dependencies for adding repositories
 RUN apt-get update && apt-get install -y \
@@ -124,9 +110,6 @@ RUN apt-get update && \
 RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-9 90 && \
     update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-9 90
 
-# Verify the installation
-RUN gcc --version
-
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libgmp-dev \
     libmpfr-dev \
@@ -138,12 +121,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     xmlto \
     && rm -rf /var/lib/apt/lists/*
 
+# Copy isolate
+COPY ./isolate /opt/isolate
+
+# Build and install isolate
+WORKDIR /opt/isolate
 
 RUN make && make install
-
-# Run check and initialize
-#RUN sudo /opt/isolate/isolate-cg-keeper
-#RUN sudo /opt/isolate/isolate-check-environment
 
 # Add isolate to the PATH
 ENV PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/isolate"
@@ -155,6 +139,3 @@ RUN mkdir -p /var/local/lib/isolate && chmod 700 /var/local/lib/isolate
 RUN rm -rf /opt/isolate/.git
 
 ENV BOX_ROOT /var/local/lib/isolate
-
-LABEL maintainer="Andrei Mikriukov <...@gmail.com>"
-LABEL version="1.5.0"
